@@ -61,6 +61,8 @@ def update_sheet(jobs_df):
     
     # Clean up dataframe for Google Sheets (convert NaNs to empty strings)
     jobs_df = jobs_df.fillna('')
+    # Convert all columns to string to avoid JSON serialization errors with dates
+    jobs_df = jobs_df.astype(str)
     
     new_jobs = []
     for _, row in jobs_df.iterrows():
