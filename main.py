@@ -8,7 +8,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 # --- Configuration ---
 SHEET_ID = "1-RhzHDWvh2nctnjNzHTaRZ-7A5G5fKZA4OPtGjLzki8"  # From user
-SEARCH_TERM = "Software Engineer"
+SEARCH_TERM = "Medical coding"
 LOCATION = "San Francisco, CA" # User can change this later
 RESULTS_WANTED = 20
 HOURS_OLD = 72
