@@ -1,0 +1,32 @@
+name: Job Scraper Bot
+
+on:
+  schedule:
+    - cron: '0 9 */2 * *' # Runs at 09:00 UTC every 2 days
+  workflow_dispatch: # Allows manual trigger
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11' # Use 3.11 for jobspy support
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Scraper
+        env:
+          # We will need to store the credentials as a secret in GitHub
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+        run: |
+          # Write the secret to a file so the script can read it
+          echo "$GOOGLE_CREDENTIALS_JSON" > google_credentials.json
+          python main.py

@@ -1,0 +1,6 @@
+__pycache__/
+*.csv
+.DS_Store
+venv/
+.env
+google_credentials.json
