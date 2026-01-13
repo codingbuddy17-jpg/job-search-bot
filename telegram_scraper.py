@@ -19,11 +19,9 @@ async def scrape_telegram_jobs(api_id, api_hash, session_string, channels, searc
             async for dialog in client.iter_dialogs():
                 if dialog.is_channel or dialog.is_group:
                     name = dialog.name.lower()
-                    # Check if channel name matches any relevant keywords (can be broader than search terms)
-                    keywords = ["medical", "coding", "job", "cdi", "clinical", "career", "hiring"]
-                    if any(k in name for k in keywords):
-                        print(f"Found relevant channel: {dialog.name}")
-                        target_channels.append(dialog)
+                    # User requested to scan ALL channels/groups
+                    print(f"Adding channel to scan list: {dialog.name}")
+                    target_channels.append(dialog)
             
             if not target_channels:
                 print("No relevant channels found in your chat list. Please join some Job channels first!")
