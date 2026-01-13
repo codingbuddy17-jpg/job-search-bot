@@ -7,13 +7,18 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 # --- Configuration ---
-SHEET_ID = "1-RhzHDWvh2nctnjNzHTaRZ-7A5G5fKZA4OPtGjLzki8"  # From user
-SEARCH_TERM = "Medical coding"
-LOCATIONS = ["Hyderabad", "Chennai", "Bangalore"] 
+SHEET_ID = "1-RhzHDWvh2nctnjNzHTaRZ-7A5G5fKZA4OPtGjLzki8"
+LOCATIONS = ["Hyderabad", "Chennai", "Bangalore"]
 RESULTS_WANTED = 20
 HOURS_OLD = 72
 
-def connect_to_sheets():
+# List of search configurations: (Search Term, Sheet Name)
+SEARCH_CONFIGS = [
+    {"term": "Medical coding", "sheet_name": "Medical Coding"},
+    {"term": "CDI Clinical Documentation", "sheet_name": "CDI_Clinical_Doc"} 
+]
+
+def connect_to_sheet(sheet_name):
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds_file = os.path.join(os.path.dirname(__file__), "google_credentials.json")
     
@@ -22,18 +27,25 @@ def connect_to_sheets():
         
     creds = ServiceAccountCredentials.from_json_keyfile_name(creds_file, scope)
     client = gspread.authorize(creds)
-    return client.open_by_key(SHEET_ID).sheet1
+    spreadsheet = client.open_by_key(SHEET_ID)
+    
+    try:
+        worksheet = spreadsheet.worksheet(sheet_name)
+    except gspread.WorksheetNotFound:
+        print(f"Worksheet '{sheet_name}' not found. Creating it...")
+        worksheet = spreadsheet.add_worksheet(title=sheet_name, rows=1000, cols=20)
+        
+    return worksheet
 
-def fetch_jobs():
+def fetch_jobs(search_term):
     all_jobs = pd.DataFrame()
     
     for location in LOCATIONS:
-        print(f"Fetching jobs for '{SEARCH_TERM}' in '{location}'...")
+        print(f"Fetching jobs for '{search_term}' in '{location}'...")
         try:
-            # Scrape jobs from multiple sources including Naukri
             jobs = scrape_jobs(
                 site_name=["indeed", "linkedin", "glassdoor", "naukri"],
-                search_term=SEARCH_TERM,
+                search_term=search_term,
                 location=location,
                 results_wanted=RESULTS_WANTED,
                 hours_old=HOURS_OLD, 
@@ -45,52 +57,48 @@ def fetch_jobs():
         except Exception as e:
             print(f"Error fetching jobs for {location}: {e}")
             
-    print(f"Total jobs found: {len(all_jobs)}")
+    print(f"Total jobs found for '{search_term}': {len(all_jobs)}")
     return all_jobs
 
-def update_sheet(jobs_df):
+def update_sheet(jobs_df, sheet_name):
     if jobs_df.empty:
-        print("No jobs found to update.")
+        print(f"No jobs found for {sheet_name}.")
         return
 
-    sheet = connect_to_sheets()
+    sheet = connect_to_sheet(sheet_name)
     
     # Get existing data to prevent duplicates
     existing_data = sheet.get_all_records()
     existing_links = set(row['job_url'] for row in existing_data if 'job_url' in row)
     
-    # Clean up dataframe for Google Sheets (convert NaNs to empty strings)
+    # Clean up dataframe
     jobs_df = jobs_df.fillna('')
-    # Convert all columns to string to avoid JSON serialization errors with dates
     jobs_df = jobs_df.astype(str)
     
     new_jobs = []
     for _, row in jobs_df.iterrows():
         if row['job_url'] not in existing_links:
-            # Format row as list for GSpread
-            # We explicitly select columns we want to ensure order, or just dump all
-            # Let's align with the columns usually returned by jobspy
             job_data = row.tolist()
             new_jobs.append(job_data)
-            existing_links.add(row['job_url']) # Add to set to prevent internal duplicates in this batch
+            existing_links.add(row['job_url'])
     
     if new_jobs:
-        # If sheet is empty (no headers), add headers first
         if not existing_data and sheet.row_count > 0:
              headers = jobs_df.columns.tolist()
              sheet.insert_row(headers, 1)
         
-        # Append new rows
         sheet.append_rows(new_jobs)
-        print(f"Added {len(new_jobs)} new jobs to the sheet.")
+        print(f"Added {len(new_jobs)} new jobs to sheet '{sheet_name}'.")
     else:
-        print("No NEW jobs found (all duplicates).")
+        print(f"No NEW jobs found for '{sheet_name}'.")
 
 if __name__ == "__main__":
-    try:
-        jobs = fetch_jobs()
-        update_sheet(jobs)
-        print("Done!")
-    except Exception as e:
-        print(f"An error occurred: {e}")
+    for config in SEARCH_CONFIGS:
+        try:
+            print(f"--- Processing: {config['term']} ---")
+            jobs = fetch_jobs(config['term'])
+            update_sheet(jobs, config['sheet_name'])
+        except Exception as e:
+            print(f"An error occurred processing {config['term']}: {e}")
+    print("Done!")
 
