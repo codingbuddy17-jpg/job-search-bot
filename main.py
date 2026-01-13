@@ -9,7 +9,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 # --- Configuration ---
 SHEET_ID = "1-RhzHDWvh2nctnjNzHTaRZ-7A5G5fKZA4OPtGjLzki8"  # From user
 SEARCH_TERM = "Medical coding"
-LOCATION = "San Francisco, CA" # User can change this later
+LOCATIONS = ["Hyderabad", "Chennai", "Bangalore"] 
 RESULTS_WANTED = 20
 HOURS_OLD = 72
 
@@ -25,21 +25,28 @@ def connect_to_sheets():
     return client.open_by_key(SHEET_ID).sheet1
 
 def fetch_jobs():
-    print(f"Fetching jobs for '{SEARCH_TERM}' in '{LOCATION}'...")
+    all_jobs = pd.DataFrame()
     
-    # Scrape jobs from multiple sources including Naukri
-    jobs = scrape_jobs(
-        site_name=["indeed", "linkedin", "glassdoor", "naukri"],
-        search_term=SEARCH_TERM,
-        location=LOCATION,
-        results_wanted=RESULTS_WANTED,
-        hours_old=HOURS_OLD, 
-        country_indeed='USA', 
-        country_glassdoor='USA',
-    )
-    
-    print(f"Found {len(jobs)} jobs")
-    return jobs
+    for location in LOCATIONS:
+        print(f"Fetching jobs for '{SEARCH_TERM}' in '{location}'...")
+        try:
+            # Scrape jobs from multiple sources including Naukri
+            jobs = scrape_jobs(
+                site_name=["indeed", "linkedin", "glassdoor", "naukri"],
+                search_term=SEARCH_TERM,
+                location=location,
+                results_wanted=RESULTS_WANTED,
+                hours_old=HOURS_OLD, 
+                country_indeed='India', 
+                country_glassdoor='India',
+            )
+            print(f"Found {len(jobs)} jobs in {location}")
+            all_jobs = pd.concat([all_jobs, jobs], ignore_index=True)
+        except Exception as e:
+            print(f"Error fetching jobs for {location}: {e}")
+            
+    print(f"Total jobs found: {len(all_jobs)}")
+    return all_jobs
 
 def update_sheet(jobs_df):
     if jobs_df.empty:
