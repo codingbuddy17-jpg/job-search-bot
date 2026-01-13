@@ -31,8 +31,10 @@ async def scrape_telegram_jobs(api_id, api_hash, session_string, channels, searc
             for entity in target_channels:
                 print(f"Scraping channel: {entity.name}...")
                 try:
-                    # Fetch last 50 messages
-                    async for message in client.iter_messages(entity, limit=50):
+                    # Fetch last 200 messages
+                    msg_count = 0
+                    async for message in client.iter_messages(entity, limit=200):
+                        msg_count += 1
                         if message.text:
                             text = message.text.lower()
                             # Check if any search term is in the message
@@ -54,6 +56,7 @@ async def scrape_telegram_jobs(api_id, api_hash, session_string, channels, searc
                                     }
                                     jobs.append(job)
                                     break 
+                    print(f"  -> Scanned {msg_count} messages in {entity.name}")
                 except Exception as e:
                     print(f"Error scraping {entity.name}: {e}")
                     
