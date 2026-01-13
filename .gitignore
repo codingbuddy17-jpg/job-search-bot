@@ -4,3 +4,5 @@ __pycache__/
 venv/
 .env
 google_credentials.json
+telegram_login.py
+*.session

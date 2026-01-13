@@ -5,12 +5,19 @@ from datetime import datetime
 import os
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from telegram_scraper import scrape_telegram_jobs
+import asyncio
 
 # --- Configuration ---
 SHEET_ID = "1-RhzHDWvh2nctnjNzHTaRZ-7A5G5fKZA4OPtGjLzki8"
 LOCATIONS = ["Hyderabad", "Chennai", "Bangalore"]
 RESULTS_WANTED = 20
 HOURS_OLD = 72
+
+# Configuration for Telegram
+TELEGRAM_API_ID = os.environ.get("TELEGRAM_API_ID")
+TELEGRAM_API_HASH = os.environ.get("TELEGRAM_API_HASH")
+TELEGRAM_SESSION_STRING = os.environ.get("TELEGRAM_SESSION_STRING")
 
 # List of search configurations: (Search Term, Sheet Name)
 SEARCH_CONFIGS = [
@@ -57,6 +64,24 @@ def fetch_jobs(search_term):
         except Exception as e:
             print(f"Error fetching jobs for {location}: {e}")
             
+    # 2. Telegram Scraping (Only run if credentials exist)
+    if TELEGRAM_API_ID and TELEGRAM_SESSION_STRING:
+        print(f"Fetching Telegram jobs for '{search_term}'...")
+        try:
+            # We run the async telegram function
+            tg_jobs = asyncio.run(scrape_telegram_jobs(
+                TELEGRAM_API_ID, 
+                TELEGRAM_API_HASH, 
+                TELEGRAM_SESSION_STRING, 
+                [], # Empty list because we auto-discover channels now
+                [search_term]
+            ))
+            if not tg_jobs.empty:
+                print(f"Found {len(tg_jobs)} Telegram jobs")
+                all_jobs = pd.concat([all_jobs, tg_jobs], ignore_index=True)
+        except Exception as e:
+            print(f"Error scraping Telegram: {e}")
+
     print(f"Total jobs found for '{search_term}': {len(all_jobs)}")
     return all_jobs
 
@@ -92,13 +117,60 @@ def update_sheet(jobs_df, sheet_name):
     else:
         print(f"No NEW jobs found for '{sheet_name}'.")
 
-if __name__ == "__main__":
-    for config in SEARCH_CONFIGS:
+# ... (imports)
+from telegram_scraper import scrape_telegram_jobs
+import asyncio
+
+# ... (existing code)
+
+# Configuration for Telegram
+TELEGRAM_API_ID = os.environ.get("TELEGRAM_API_ID")
+TELEGRAM_API_HASH = os.environ.get("TELEGRAM_API_HASH")
+TELEGRAM_SESSION_STRING = os.environ.get("TELEGRAM_SESSION_STRING")
+
+# ... (fetch_jobs function update)
+
+def fetch_jobs(search_term):
+    all_jobs = pd.DataFrame()
+    
+    # 1. Standard Web Scraping
+    for location in LOCATIONS:
+        # ... (existing web scraping logic)
+        print(f"Fetching jobs for '{search_term}' in '{location}'...")
         try:
-            print(f"--- Processing: {config['term']} ---")
-            jobs = fetch_jobs(config['term'])
-            update_sheet(jobs, config['sheet_name'])
+            jobs = scrape_jobs(
+                site_name=["indeed", "linkedin", "glassdoor", "naukri"],
+                search_term=search_term,
+                location=location,
+                results_wanted=RESULTS_WANTED,
+                hours_old=HOURS_OLD, 
+                country_indeed='India', 
+                country_glassdoor='India',
+            )
+            print(f"Found {len(jobs)} jobs in {location}")
+            all_jobs = pd.concat([all_jobs, jobs], ignore_index=True)
         except Exception as e:
-            print(f"An error occurred processing {config['term']}: {e}")
-    print("Done!")
+            print(f"Error scraping web for {location}: {e}")
+
+    # 2. Telegram Scraping (Only run if credentials exist)
+    if TELEGRAM_API_ID and TELEGRAM_SESSION_STRING:
+        print(f"Fetching Telegram jobs for '{search_term}'...")
+        try:
+            # We run the async telegram function
+            tg_jobs = asyncio.run(scrape_telegram_jobs(
+                TELEGRAM_API_ID, 
+                TELEGRAM_API_HASH, 
+                TELEGRAM_SESSION_STRING, 
+                [], # Empty list because we auto-discover channels now
+                [search_term]
+            ))
+            if not tg_jobs.empty:
+                print(f"Found {len(tg_jobs)} Telegram jobs")
+                all_jobs = pd.concat([all_jobs, tg_jobs], ignore_index=True)
+        except Exception as e:
+            print(f"Error scraping Telegram: {e}")
+            
+    print(f"Total jobs found for '{search_term}': {len(all_jobs)}")
+    return all_jobs
+
 

@@ -26,6 +26,9 @@ jobs:
         env:
           # We will need to store the credentials as a secret in GitHub
           GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          TELEGRAM_SESSION_STRING: ${{ secrets.TELEGRAM_SESSION_STRING }}
         run: |
           # Write the secret to a file so the script can read it
           echo "$GOOGLE_CREDENTIALS_JSON" > google_credentials.json
