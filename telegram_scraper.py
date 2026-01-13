@@ -12,7 +12,6 @@ async def scrape_telegram_jobs(api_id, api_hash, session_string, channels, searc
     jobs = []
     
     try:
-    try:
         async with TelegramClient(StringSession(session_string), api_id, api_hash) as client:
             # 1. Identify relevant channels from user's dialogs
             print("Scanning your channels for relevant ones...")
