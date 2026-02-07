@@ -102,29 +102,45 @@ def remove_expired_jobs(sheet_name):
 def fetch_jobs(search_term):
     all_jobs = pd.DataFrame()
     
-    # 1. Standard Web Scraping
+    # Define sites to scrape. We split them to isolate errors (especially LinkedIn).
+    # site_groups = [["indeed", "glassdoor", "naukri"], ["linkedin"]]
+    # Actually, let's just do them in one go but with better logging? 
+    # JobSpy suggests doing them together is faster/better, but for debugging, splitting is useful.
+    # Let's try splitting LinkedIn out.
+    
+    site_configs = [
+        {"sites": ["indeed", "glassdoor", "naukri"], "name": "Standard"},
+        {"sites": ["linkedin"], "name": "LinkedIn"}
+    ]
+
     for location in LOCATIONS:
         print(f"Fetching jobs for '{search_term}' in '{location}'...")
-        try:
-            # Added more robust error handling and logging
-            jobs = scrape_jobs(
-                site_name=["indeed", "linkedin", "glassdoor", "naukri"],
-                search_term=search_term,
-                location=location,
-                results_wanted=RESULTS_WANTED,
-                hours_old=HOURS_OLD, 
-                country_indeed='India', 
-                country_glassdoor='India',
-            )
-            print(f"   -> Found {len(jobs)} jobs in {location}")
+        
+        for config in site_configs:
+            sites = config["sites"]
+            group_name = config["name"]
             
-            if not jobs.empty:
-                # Normalize date_posted to be string if not already
-                jobs['date_posted'] = jobs['date_posted'].astype(str)
-                all_jobs = pd.concat([all_jobs, jobs], ignore_index=True)
+            try:
+                print(f"   -> Scraping {group_name} ({', '.join(sites)})...")
+                jobs = scrape_jobs(
+                    site_name=sites,
+                    search_term=search_term,
+                    location=location,
+                    results_wanted=RESULTS_WANTED,
+                    hours_old=HOURS_OLD, 
+                    country_indeed='India', 
+                    country_glassdoor='India',
+                )
                 
-        except Exception as e:
-            print(f"   ❌ Error scraping web for {location}: {e}")
+                count = len(jobs)
+                print(f"   -> Found {count} jobs from {group_name}")
+                
+                if not jobs.empty:
+                    jobs['date_posted'] = jobs['date_posted'].astype(str)
+                    all_jobs = pd.concat([all_jobs, jobs], ignore_index=True)
+                    
+            except Exception as e:
+                print(f"   ❌ Error scraping {group_name} for {location}: {e}")
 
     # 2. Telegram Scraping (Only run if credentials exist)
     if TELEGRAM_API_ID and TELEGRAM_SESSION_STRING:
