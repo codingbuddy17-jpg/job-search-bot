@@ -21,8 +21,22 @@ TELEGRAM_SESSION_STRING = os.environ.get("TELEGRAM_SESSION_STRING")
 
 # List of search configurations: (Search Term, Sheet Name)
 SEARCH_CONFIGS = [
+    # Medical Coding
     {"term": "Medical coding", "sheet_name": "Medical Coding"},
-    {"term": "CDI Clinical Documentation", "sheet_name": "CDI_Clinical_Doc"} 
+    {"term": "Inpatient coding", "sheet_name": "Medical Coding"},
+    {"term": "Inpatient coder", "sheet_name": "Medical Coding"},
+    {"term": "IP-DRG coding", "sheet_name": "Medical Coding"},
+    {"term": "IP-DRG coder", "sheet_name": "Medical Coding"},
+    {"term": "Clinical coder", "sheet_name": "Medical Coding"},
+    {"term": "Clinical coding", "sheet_name": "Medical Coding"},
+    
+    # CDI
+    {"term": "CDI Clinical Documentation", "sheet_name": "CDI_Clinical_Doc"},
+    {"term": "Clinical Documentation Improvement", "sheet_name": "CDI_Clinical_Doc"},
+    {"term": "CDI specialist", "sheet_name": "CDI_Clinical_Doc"},
+    {"term": "CDI associate", "sheet_name": "CDI_Clinical_Doc"},
+    {"term": "CDI coder", "sheet_name": "CDI_Clinical_Doc"},
+    {"term": "Clinical Documentation Integrity", "sheet_name": "CDI_Clinical_Doc"}
 ]
 
 def connect_to_sheet(sheet_name):
