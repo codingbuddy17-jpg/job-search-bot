@@ -1,4 +1,5 @@
 import csv
+import re
 import pandas as pd
 from jobspy import scrape_jobs
 from datetime import datetime, timedelta
@@ -36,7 +37,9 @@ SEARCH_CONFIGS = [
     {"term": "CDI specialist", "sheet_name": "CDI_Clinical_Doc"},
     {"term": "CDI associate", "sheet_name": "CDI_Clinical_Doc"},
     {"term": "CDI coder", "sheet_name": "CDI_Clinical_Doc"},
-    {"term": "Clinical Documentation Integrity", "sheet_name": "CDI_Clinical_Doc"}
+    {"term": "Clinical Documentation Integrity", "sheet_name": "CDI_Clinical_Doc"},
+    {"term": "CDIP", "sheet_name": "CDI_Clinical_Doc"},
+    {"term": "CDI Coding", "sheet_name": "CDI_Clinical_Doc"},
 ]
 
 def connect_to_sheet(sheet_name):
@@ -113,6 +116,100 @@ def remove_expired_jobs(sheet_name):
     except Exception as e:
         print(f"   ❌ Error during cleanup: {e}")
 
+# --- Relevance Filter ---
+# Positive keywords: at least ONE must appear in the job title or description
+POSITIVE_KEYWORDS = [
+    "medical coding", "medical coder",
+    "inpatient coding", "inpatient coder",
+    "ip-drg", "ip drg", "drg coding", "drg coder",
+    "clinical coding", "clinical coder",
+    "clinical documentation", "cdi", "cdip",
+    "hcc", "risk adjustment",
+    "icd-10", "icd 10", "icd10",
+    "cpc", "ccs",
+    "ahima", "aapc",
+    "health information management", "him ",
+    "revenue cycle",
+    "outpatient coding", "outpatient coder",
+    "diagnosis coding", "procedure coding",
+    "coding specialist", "coding analyst",
+    "coding auditor", "coding educator",
+    "chart review", "medical record",
+]
+
+# Negative keywords: if ANY appears in the job TITLE, the job is excluded
+NEGATIVE_TITLE_KEYWORDS = [
+    "software engineer", "software developer", "software development",
+    "web developer", "frontend", "front-end", "backend", "back-end",
+    "full stack", "fullstack", "full-stack",
+    "devops", "data engineer", "data scientist",
+    "machine learning", "ml engineer", "ai engineer",
+    "python developer", "java developer", "javascript",
+    "react", "angular", "node.js", "vue.js",
+    "cloud engineer", "sre", "site reliability",
+    "qa engineer", "test engineer", "automation engineer",
+    "embedded", "firmware", "hardware engineer",
+    "mechanical engineer", "civil engineer", "electrical engineer",
+    "network engineer", "system administrator", "sysadmin",
+    "cybersecurity", "information security",
+    "database administrator", "dba",
+    "ui/ux", "ux designer", "ui designer",
+    "product manager", "scrum master",
+    "blockchain", "crypto",
+]
+
+def filter_relevant_jobs(jobs_df, search_term):
+    """
+    Filters a DataFrame of jobs to keep only healthcare coding/CDI relevant results.
+    Uses positive keyword matching + negative keyword exclusion on title.
+    """
+    if jobs_df.empty:
+        return jobs_df
+    
+    original_count = len(jobs_df)
+    kept_indices = []
+    
+    for idx, row in jobs_df.iterrows():
+        title = str(row.get('title', '')).lower()
+        description = str(row.get('description', '')).lower()
+        combined_text = title + " " + description
+        
+        # Step 1: Check if title contains any negative (engineering) keyword
+        is_engineering = False
+        for neg_kw in NEGATIVE_TITLE_KEYWORDS:
+            if neg_kw in title:
+                is_engineering = True
+                break
+        
+        if is_engineering:
+            continue
+        
+        # Step 2: Check if title or description contains at least one positive keyword
+        has_positive = False
+        for pos_kw in POSITIVE_KEYWORDS:
+            if pos_kw in combined_text:
+                has_positive = True
+                break
+        
+        # Also accept if the original search term itself is in the title
+        if not has_positive:
+            if search_term.lower() in title:
+                has_positive = True
+        
+        if has_positive:
+            kept_indices.append(idx)
+    
+    filtered_df = jobs_df.loc[kept_indices].reset_index(drop=True)
+    removed_count = original_count - len(filtered_df)
+    
+    if removed_count > 0:
+        print(f"   🔍 Relevance filter: Kept {len(filtered_df)}/{original_count} jobs ({removed_count} irrelevant removed)")
+    else:
+        print(f"   🔍 Relevance filter: All {original_count} jobs are relevant")
+    
+    return filtered_df
+
+
 def fetch_jobs(search_term):
     all_jobs = pd.DataFrame()
     
@@ -175,7 +272,12 @@ def fetch_jobs(search_term):
         except Exception as e:
             print(f"   ❌ Error scraping Telegram: {e}")
 
-    print(f"Total jobs found for '{search_term}': {len(all_jobs)}")
+    print(f"Total jobs found for '{search_term}' (before filter): {len(all_jobs)}")
+    
+    # Apply relevance filter to remove engineering/irrelevant jobs
+    all_jobs = filter_relevant_jobs(all_jobs, search_term)
+    
+    print(f"Total relevant jobs for '{search_term}': {len(all_jobs)}")
     return all_jobs
 
 def update_sheet(jobs_df, sheet_name):
